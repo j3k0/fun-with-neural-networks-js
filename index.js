@@ -53,7 +53,8 @@ function neuralNetwork() {
         return layer[index];
     }
 
-    function create(nInputs, nNeurons) {
+    function create(layerSizes) {
+        /*
         if (nNeurons > 1)
             return [
                 createLayer(nInputs, nNeurons),
@@ -61,6 +62,10 @@ function neuralNetwork() {
             ];
         else
             return [ createLayer(nInputs, 1) ]
+        */
+        return layerSizes.slice(1).map((nNeurons, index) =>
+            createLayer(layerSizes[index], nNeurons)
+        );
     }
 
     function train(nIteration, network, trainingInputsArray, trainingOutputArray) {
@@ -80,20 +85,17 @@ function neuralNetwork() {
     }
 
     function test(name, network, testInputsArray, testOutputsArray) {
-        const actual = forwardArray(network, testInputsArray).map(Math.round);
-        const expect = transpose(testOutputsArray)[0];
-        const stats = actual.reduce((stats, actual, index) => {
-            const ok = (Math.round(actual) == expect[index] ? 1 : 0);
+        const actual = applyAll(Math.round, forwardArray(network, testInputsArray));
+        const expect = testOutputsArray;
+        const stats = flatten(sub(actual, expect)).reduce((stats, value) => {
+            const ok = (value == 0);
             const success = stats.success + ok;
             const failure = stats.failure + 1 - ok;
             const total = stats.total + 1;
             return { success, failure, total };
         }, { success:0, failure:0, total:0 });
-        //console.log("actual: ", );
-        //console.log("expect: ", transpose(testOutputsArray)[0]);
-        console.log(" === " + name + " === ");
-        console.log("Success rate: " + Math.round(1000 * stats.success / stats.total) / 10 + " %");
-        console.log("  Error rate: " + Math.round(1000 * stats.failure / stats.total) / 10 + " %");
+
+        console.log(name + ": Success=" + Math.round(1000 * stats.success / stats.total) / 10 + "%");
     }
 
     function dot(m1 /* h1 x w1 */, m2 /* h2 x w2 */) {
@@ -119,6 +121,10 @@ function neuralNetwork() {
                 throw new Error("cant mul matrices of different sizes");
             return m.map((row, rowIndex) => row.map((cell, colIndex) => cell * coef[rowIndex][colIndex]));
         }
+    }
+
+    function flatten(m) {
+        return m.reduce((array, row) => array.concat(row), []);
     }
 
     function sub(m1, m2) {
@@ -161,67 +167,40 @@ function neuralNetwork() {
             console.log(matrix);
     }
 
-    function trainIteration(network, trainingInputs, trainingOutput) {
+    function trainIteration(network, trainingInputs, trainingOutputs) {
 
-        if (network.length == 1) {
-            return [ [ neuronTrainIteration(network[0][0], trainingInputs, transpose(trainingOutput)[0]) ] ];
+        let x = trainingInputs;
+        const outputs = network.map((layer) => x = layerForwardArray(layer, x));
+        const inputs = [ trainingInputs ].concat(outputs.slice(0, outputs.length - 1));
+
+        const error = [];
+        const delta = [];
+        const weightOffsets = [];
+
+        for (let index = network.length - 1; index >= 0; --index) {
+            error[index] = (index == network.length - 1)
+                ? sub(trainingOutputs, outputs[index])
+                : dot(delta[index + 1], network[index + 1]);
+            delta[index] = mul(error[index], applyAll(activationDerivative, outputs[index]));
+            weightOffsets[index] = transpose(dot(transpose(inputs[index]), delta[index]));
         }
-        else if (network.length == 2) {
-            let x = trainingInputs;
-            const outputs = network.map((layer) => x = layerForwardArray(layer, x));
-            const inputs = [ trainingInputs ].concat(outputs.slice(0, outputs.length - 1));
 
-            //debugMatrix(trainingInputs, "trainingInputs");
-            //debugMatrix(trainingOutput, "trainingOutput", true);
-            //debugMatrix(network[0], "network[0]");
-            //debugMatrix(network[1], "network[1]");
-            //debugMatrix(inputs[0],  "inputs[0]");
-            //debugMatrix(inputs[1],  "inputs[1]");
-            //debugMatrix(outputs[0], "outputs[0]");
-            //debugMatrix(outputs[1], "outputs[1]", true);
+        //debugMatrix(trainingInputs, "trainingInputs");
+        //debugMatrix(trainingOutputs, "trainingOutputs", true);
+        //debugMatrix(network[0], "network[0]");
+        //debugMatrix(network[1], "network[1]");
+        //debugMatrix(inputs[0],  "inputs[0]");
+        //debugMatrix(inputs[1],  "inputs[1]");
+        //debugMatrix(outputs[0], "outputs[0]");
+        //debugMatrix(outputs[1], "outputs[1]", true);
+        //debugMatrix(error[1], "error[1]", true);
+        //debugMatrix(delta[1], "delta[1]");
+        //debugMatrix(error[0], "error[0]");
+        //debugMatrix(delta[0], "delta[0]");
+        //debugMatrix(weightOffsets[1], "weightOffsets[1]");
+        //debugMatrix(weightOffsets[0], "weightOffsets[0]");
 
-            const error = [];
-            const delta = [];
-
-            error[1] = sub(trainingOutput, outputs[1]);
-            delta[1] = mul(error[1], applyAll(activationDerivative, outputs[1]));
-
-            error[0] = dot(delta[1], network[1]);
-            delta[0] = mul(error[0], applyAll(activationDerivative, outputs[0]));
-
-            const weightOffsets = [];
-
-            weightOffsets[1] = transpose(dot(transpose(inputs[1]), delta[1]));
-            weightOffsets[0] = transpose(dot(transpose(inputs[0]), delta[0]));
-
-            //debugMatrix(error[1], "error[1]", true);
-            //debugMatrix(delta[1], "delta[1]");
-            //debugMatrix(error[0], "error[0]");
-            //debugMatrix(delta[0], "delta[0]");
-            //debugMatrix(weightOffsets[1], "weightOffsets[1]");
-            //debugMatrix(weightOffsets[0], "weightOffsets[0]");
-
-            return [
-                add(network[0], weightOffsets[0]),
-                add(network[1], weightOffsets[1])
-            ];
-        }
-        else {
-            return network;
-        }
-    }
-
-    function neuronTrainIteration(neuron, trainingInputsArray, trainingOutputArray) {
-        const outputArray /* 1xN */ = neuronForwardArray(neuron, trainingInputsArray);
-        const errorArray /* 1xN */ = outputArray.map((output, index) => trainingOutputArray[index] - output);
-        const deltaArray /* 1xN */ = outputArray.map((output, index) => activationDerivative(output) * errorArray[index]);
-        // weightOffsets = transposed(trainingInputsArray) . deltaArray
-        const weightOffsets /* 1xM */ = neuron.map((weight, weightIndex) => {
-            return deltaArray.reduce((sum, delta, deltaIndex) => {
-                return sum + delta * trainingInputsArray[deltaIndex][weightIndex];
-            }, 0);
-        });
-        return neuron.map((weight, index) => weight + weightOffsets[index]);
+        return network.map((layer, index) => add(layer, weightOffsets[index]));
     }
 
     return {
@@ -239,7 +218,7 @@ function problem1() {
     const trainingInputsArray = [[ 1, 0, 0 ], [ 0, 1, 1 ], [ 1, 1, 1], [ 0, 0, 1], [ 1, 1, 0 ], [ 0, 1, 0 ]];
     const trainingOutputArray = [ [1], [0], [1], [0], [1], [0] ];
 
-    const network = create(3, 1);
+    const network = create([3, 3, 1]);
     const trainedNetwork = train(500, network, trainingInputsArray, trainingOutputArray);
 
     test("problem1", trainedNetwork, testInputsArray, testOutputsArray);
@@ -248,12 +227,12 @@ function problem1() {
 function problem2() {
     // 1bit sum of the 3 columns
     const testInputsArray = [[1,0,0],[0,1,1],[1,1,1],[1,1,0]];
-    const testOutputsArray = [ [1], [0], [1], [0] ];
+    const testOutputsArray = [ [1,0], [0,1], [1,1], [0,1] ];
 
     const trainingInputsArray = [[ 1, 0, 0 ], [ 0, 1, 1 ], [ 1, 1, 1], [ 0, 0, 1], [ 1, 1, 0 ], [ 0, 1, 0 ]];
-    const trainingOutputArray = [ [1], [0], [1], [1], [0], [1] ];
+    const trainingOutputArray = [ [1,0], [0,1], [1,1], [1,0], [0,1], [1,1] ];
 
-    const network = create(3, 4);
+    const network = create([3, 6, 2]);
     const trainedNetwork = train(500, network, trainingInputsArray, trainingOutputArray);
 
     test("problem2", trainedNetwork, testInputsArray, testOutputsArray);
