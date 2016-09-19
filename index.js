@@ -177,12 +177,12 @@ function neuralNetwork() {
         const delta = [];
         const weightOffsets = [];
 
-        for (let index = network.length - 1; index >= 0; --index) {
-            error[index] = (index == network.length - 1)
-                ? sub(trainingOutputs, outputs[index])
-                : dot(delta[index + 1], network[index + 1]);
-            delta[index] = mul(error[index], applyAll(activationDerivative, outputs[index]));
-            weightOffsets[index] = transpose(dot(transpose(inputs[index]), delta[index]));
+        for (let i = network.length - 1; i >= 0; --i) {
+            error[i] = (i == network.length - 1)
+                ? sub(trainingOutputs, outputs[i])
+                : dot(delta[i + 1], network[i + 1]);
+            delta[i] = mul(error[i], applyAll(activationDerivative, outputs[i]));
+            weightOffsets[i] = transpose(dot(transpose(inputs[i]), delta[i]));
         }
 
         //debugMatrix(trainingInputs, "trainingInputs");
@@ -204,11 +204,11 @@ function neuralNetwork() {
     }
 
     return {
-        create, test, train
+        create, test, train, forward, forwardArray
     };
 }
 
-const { create, test, train } = neuralNetwork();
+const { create, test, train, forward } = neuralNetwork();
 
 function problem1() {
     // most basic: copy over value from first column
@@ -238,5 +238,45 @@ function problem2() {
     test("problem2", trainedNetwork, testInputsArray, testOutputsArray);
 }
 
+function problem3() {
+
+    function bit(v) {
+        return [ v & 1, (v >> 1) & 1, (v >> 2) & 1, (v >> 3) & 1, (v >> 4) & 1, (v >> 5) & 1, (v >> 6) & 1, (v >> 7) & 1 ];
+    }
+    function fromBit(v) {
+        return v[0] + 2*v[1] + 4*v[2] + 8*v[3] + 16*v[4] + 32*v[5] + 64*v[6] + 128*v[7];
+    }
+
+    const trainingInputsArray = [];
+    const trainingOutputArray = [];
+    function add(i,o) {
+        trainingInputsArray.push(bit(Math.round(i)));
+        trainingOutputArray.push(bit(Math.round(o * 10)));
+    }
+    add(8, 8.5);
+    add(3, 1.5);
+    add(2, 2);
+    add(8, 3);
+    add(5, 2.5);
+    add(2, 0.4);
+    add(1, 0.5);
+    add(1, 1);
+    add(2, 0.6);
+    add(1, 5);
+    add(1, 1.75);
+    add(2, 1.3);
+    add(2, 0.5);
+    add(1, 1);
+    add(3, 2.5);
+    add(1, 0.8);
+    add(2, 0.7);
+
+    const network = create([8, 16, 16, 8]);
+    const trainedNetwork = train(1000, network, trainingInputsArray, trainingOutputArray);
+    for (let i = 1; i <= 8; ++i)
+        console.log(i, Math.round(fromBit(forward(trainedNetwork, bit(i))))/10);//.map(Math.round));
+}
+
 problem1();
 problem2();
+problem3();
