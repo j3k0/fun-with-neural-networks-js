@@ -1,3 +1,24 @@
+function debugMatrix(matrix, name, fullDisplay) {
+    if (typeof matrix[0][0] != 'number') {
+        console.log(name + " IS NOT A MATRIX!");
+        console.log(matrix);
+        return;
+    }
+    console.log(name + " (" + matrix.length + "x" + matrix[0].length + ")");
+    const hasNaN = matrix.reduce((hasNaN, row) => {
+        return row.reduce((hasNaN, cell) => {
+            return hasNaN || isNaN(cell) || (cell == undefined);
+        }, hasNaN);
+    }, false);
+    if (hasNaN) {
+        console.log(name + " IS BUGGY!");
+        if (fullDisplay === undefined)
+            fullDisplay = true;
+    }
+    if (fullDisplay === true)
+        console.log(matrix);
+}
+
 function neuralNetwork() {
 
     // An array of n zeros
@@ -69,8 +90,9 @@ function neuralNetwork() {
     }
 
     function train(nIteration, network, trainingInputsArray, trainingOutputArray) {
-        while (nIteration-- > 0)
+        while (nIteration-- > 0) {
             network = trainIteration(network, trainingInputsArray, trainingOutputArray);
+        }
         return network;
     }
 
@@ -147,26 +169,6 @@ function neuralNetwork() {
         return m[0].map((dummy, colIndex) => m.reduce((out, row, rowIndex) => out.concat(row[colIndex]), []));
     }
 
-    function debugMatrix(matrix, name, fullDisplay) {
-        if (typeof matrix[0][0] != 'number') {
-            console.log(name + " IS NOT A MATRIX!");
-            console.log(matrix);
-            return;
-        }
-        console.log(name + " (" + matrix.length + "x" + matrix[0].length + ")");
-        const hasNaN = matrix.reduce((hasNaN, row) => {
-            return row.reduce((hasNaN, cell) => {
-                return hasNaN || isNaN(cell) || (cell == undefined);
-            }, hasNaN);
-        }, false);
-        if (hasNaN) {
-            console.log(name + " IS BUGGY!");
-            fullDisplay = true;
-        }
-        if (fullDisplay)
-            console.log(matrix);
-    }
-
     function trainIteration(network, trainingInputs, trainingOutputs) {
 
         let x = trainingInputs;
@@ -203,12 +205,20 @@ function neuralNetwork() {
         return network.map((layer, index) => add(layer, weightOffsets[index]));
     }
 
+    function load(fname) {
+        return require('fs').existsSync('./' + fname + '.json') ? require('./' + fname) : null;
+    }
+
+    function save(fname, network) {
+        require('fs').writeFileSync("./" + fname + ".json", JSON.stringify(network));
+    }
+
     return {
-        create, test, train, forward, forwardArray
+        create, test, train, forward, forwardArray, load, save
     };
 }
 
-const { create, test, train, forward } = neuralNetwork();
+const { create, test, train, forward, load, save } = neuralNetwork();
 
 function problem1() {
     // most basic: copy over value from first column
@@ -247,36 +257,91 @@ function problem3() {
         return v[0] + 2*v[1] + 4*v[2] + 8*v[3] + 16*v[4] + 32*v[5] + 64*v[6] + 128*v[7];
     }
 
+    const data = [[8, 8.5], [3, 1.5], [2, 2], [8, 3], [5, 2.5], [2, 0.4], [1, 0.5], [1, 1], [2, 0.6], [1, 5], [1, 1.75], [2, 1.3], [2, 0.5], [1, 1], [3, 2.5], [1, 0.8], [2, 0.7]];
+
     const trainingInputsArray = [];
     const trainingOutputArray = [];
-    function add(i,o) {
-        trainingInputsArray.push(bit(Math.round(i)));
-        trainingOutputArray.push(bit(Math.round(o * 10)));
-    }
-    add(8, 8.5);
-    add(3, 1.5);
-    add(2, 2);
-    add(8, 3);
-    add(5, 2.5);
-    add(2, 0.4);
-    add(1, 0.5);
-    add(1, 1);
-    add(2, 0.6);
-    add(1, 5);
-    add(1, 1.75);
-    add(2, 1.3);
-    add(2, 0.5);
-    add(1, 1);
-    add(3, 2.5);
-    add(1, 0.8);
-    add(2, 0.7);
+    data.forEach((x) => {
+        trainingInputsArray.push(bit(Math.round(x[0])));
+        trainingOutputArray.push(bit(Math.round(x[1] * 10)));
+    });
 
-    const network = create([8, 16, 16, 8]);
-    const trainedNetwork = train(1000, network, trainingInputsArray, trainingOutputArray);
+    const network = create([8, 8, 8, 8]);
+    const trainedNetwork = train(500, network, trainingInputsArray, trainingOutputArray);
     for (let i = 1; i <= 8; ++i)
         console.log(i, Math.round(fromBit(forward(trainedNetwork, bit(i))))/10);//.map(Math.round));
 }
 
-problem1();
-problem2();
-problem3();
+// Problem really too big for our basic un-optimal implementation...
+// It can't even finish a single iteration!
+function problem4() {
+
+    function bit5(v) {
+        return [ v & 1, (v >> 1) & 1, (v >> 2) & 1, (v >> 3) & 1, (v >> 4) & 1 ];
+    }
+    function fromBit5(v) {
+        return v[0] + 2*v[1] + 4*v[2] + 8*v[3] + 16*v[4];
+    }
+    function encodeChar(char) {
+        return char === ' ' ? bit5(0) : bit5(char.charCodeAt(0) - 64)
+    }
+    function decodeChar(char) {
+        var c = fromBit5(char);
+        return c === 0 ? ' ' : String.fromCharCode(64 + c);
+    }
+    function encodeChars(input) {
+        var output = [];
+        for (let i = 0; i < input.length; ++i) {
+            var code = encodeChar(input[i]);
+            for (let j = 0; j < code.length; ++j)
+                output.push(code[j]);
+        }
+        return output;
+    }
+    function decodeChars(x) {
+        var out = [];
+        for (let i = 0; i < x.length; i+= 5)
+            out.push(decodeChar(x.slice(i, i + 5).map(Math.round)));
+        return out;
+    }
+    function preprocessInput(line) {
+        return encodeChars(line[0]);
+    }
+    function preprocessOutput(line) {
+        return encodeChars(line[1]);
+    }
+    function preprocess(data) {
+        return [
+            data.map(preprocessInput),
+            data.map(preprocessOutput)
+        ];
+    }
+    function loadData() {
+        console.log("loading data...");
+        const data = require('./data/wordsearch-addword');
+        const trainingData = preprocess(data.slice(0, 1024));
+        return {
+            trainingInputs: trainingData[0],
+            trainingOutputs: trainingData[1]
+        }
+    }
+    const { trainingInputs, trainingOutputs } = loadData();
+    console.log("create network");
+    debugMatrix(trainingInputs, "trainingInputs", false);
+    debugMatrix(trainingOutputs, "trainingOutputs", false);
+    let network = load("wordsearch-addword") || create([trainingInputs[0].length, trainingInputs[0].length, trainingOutputs[0].length]);
+    while(true) {
+        console.log("training network...");
+        network = train(1, network, trainingInputs, trainingOutputs);
+        save("wordsearch-addword", network);
+        console.log(decodeChars(trainingInputs[99]).join(''));
+        console.log(decodeChars(forward(network, trainingInputs[99])).join(''));
+        console.log(decodeChars(trainingInputs[95]).join(''));
+        console.log(decodeChars(forward(network, trainingInputs[95])).join(''));
+    }
+}
+
+//problem1();
+//problem2();
+//problem3();
+problem4();
