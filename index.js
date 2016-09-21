@@ -240,19 +240,47 @@ function problem2() {
 
 function problem3() {
 
+    function one(a,b) { return a == b ? 1 : 0; }
     function bit(v) {
-        return [ v & 1, (v >> 1) & 1, (v >> 2) & 1, (v >> 3) & 1, (v >> 4) & 1, (v >> 5) & 1, (v >> 6) & 1, (v >> 7) & 1 ];
+        return [
+            one(v, 0),
+            one(v, 1),
+            one(v, 2),
+            one(v, 3),
+            one(v, 4),
+            one(v, 5),
+            one(v, 6),
+            one(v, 7),
+            one(v, 8),
+            one(v, 9),
+            one(v, 10),
+            one(v, 11),
+            one(v, 12),
+            one(v, 13),
+            one(v, 14),
+            one(v, 15)
+        ];
+        // return [ v & 1, (v >> 1) & 1, (v >> 2) & 1, (v >> 3) & 1, (v >> 4) & 1, (v >> 5) & 1, (v >> 6) & 1, (v >> 7) & 1 ];
     }
     function fromBit(v) {
-        return v[0] + 2*v[1] + 4*v[2] + 8*v[3] + 16*v[4] + 32*v[5] + 64*v[6] + 128*v[7];
+        v = v.map(Math.round);
+        // return v[0] + 2*v[1] + 4*v[2] + 8*v[3] + 16*v[4] + 32*v[5] + 64*v[6] + 128*v[7];
+        return v[0] ? 0 : v[1] ? 1 : v[2] ? 2 : v[3] ? 3 : v[4] ? 4 : v[5] ? 5 : v[6] ? 6 : v[7] ? 7 :
+            v[8] ? 8 : v[9] ? 9 : v[10] ? 10 : v[11] ? 11 : v[12] ? 12 : v[13] ? 13 : v[14] ? 14 : v[15] ? 15 : -1;
     }
 
     const trainingInputsArray = [];
     const trainingOutputArray = [];
     function add(i,o) {
-        trainingInputsArray.push(bit(Math.round(i)));
-        trainingOutputArray.push(bit(Math.round(o * 10)));
+        trainingInputsArray.push(i2b(i));
+        trainingOutputArray.push(o2b(o));
     }
+    function i2b(i) { return bit(Math.round(i)); }
+    function o2b(o) { return bit(Math.round(o)); }
+    function b2o(b) { return fromBit(b); }
+    /* function o2b(o) { return bit(Math.round(8 * Math.log(1 + o))); }
+    function b2o(b) { return Math.round(Math.exp(fromBit(b) / 8) - 1); } */
+
     add(8, 8.5);
     add(3, 1.5);
     add(2, 2);
@@ -271,10 +299,12 @@ function problem3() {
     add(1, 0.8);
     add(2, 0.7);
 
-    const network = create([8, 16, 16, 8]);
+    const network = create([16, 16]);
     const trainedNetwork = train(1000, network, trainingInputsArray, trainingOutputArray);
-    for (let i = 1; i <= 8; ++i)
-        console.log(i, Math.round(fromBit(forward(trainedNetwork, bit(i))))/10);//.map(Math.round));
+    for (let i = 0; i <= 15; ++i) {
+        //console.log(i, o2b(i), b2o(o2b(i)));
+        console.log(i, b2o(forward(trainedNetwork, i2b(i))));
+    }
 }
 
 problem1();
